@@ -26,7 +26,7 @@ const userSchema = new Schema(
   {
     name: { type: String },
     email: { type: String, required: true, unique: true, index: true },
-    passwordHash: { type: String }, // for later (non-OTP login optional)
+    passwordHash: { type: String },
     role: { type: String, enum: ["student", "admin"], default: "student" },
     isActive: { type: Boolean, default: true },
   },
@@ -44,12 +44,13 @@ const otpSchema = new Schema(
   },
   { timestamps: true }
 );
-
 otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 const Otp = model("Otp", otpSchema);
 
+app.use("/auth", require("./routes/auth"));
+
 app.get("/health", async (req, res) => {
-  const dbState = mongoose.connection.readyState; // 1 = connected
+  const dbState = mongoose.connection.readyState;
   res.json({
     ok: true,
     service: "smart-trivia-api",
@@ -58,29 +59,9 @@ app.get("/health", async (req, res) => {
   });
 });
 
-app.post("/api/dev/create-test-user", async (req, res) => {
-  try {
-    const { email = "student@example.com", name = "Test Student" } = req.body || {};
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.json({ created: false, user: existing });
-    }
-    const user = await User.create({ email, name, role: "student" });
-    res.json({ created: true, user });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get("/api/dev/users", async (req, res) => {
-  const users = await User.find().sort({ createdAt: -1 }).limit(20);
-  res.json({ count: users.length, users });
-});
-
 app.get("/api/greeting", (req, res) => {
-  res.json({ message: "Hello from Smart Trivia API 👋" });
+  res.json({ message: "Hello from Smart Trivia API" });
 });
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

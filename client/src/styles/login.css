@@ -1,0 +1,135 @@
+/* background */
+
+html, body, #root { height: 100%; width: 100%; }
+#root { max-width: none; margin: 0; padding: 0; }
+body { margin: 0; background: transparent; }
+
+.login-shell {
+  min-height: 100dvh;
+  background: linear-gradient(180deg, #9ac1ff 0%, #6697f7 50%, #527fdd 100%);
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+/* brand top-left */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 28px;
+  color: #eaf1ff;
+  user-select: none;
+}
+.logo-dot {
+  width: 28px; height: 28px; display: grid; place-items: center;
+  background: rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 50%;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.brand-text {
+  font-weight: 700; letter-spacing: 1.2px;
+}
+
+/* center card */
+.login-center {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.login-card {
+  width: 360px;
+  max-width: 92vw;
+  background: linear-gradient(180deg, #0e1a2b 0%, #0b1524 100%);
+  border-radius: 14px;
+  padding: 28px 26px;
+  box-shadow:
+    0 20px 50px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  color: #cfe0ff;
+}
+
+/* headings */
+.login-title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  color: #ffffff;
+  text-align: center;
+}
+.login-sub {
+  margin: 0 0 18px;
+  text-align: center;
+  color: #9fb4e6;
+  font-size: 13px;
+}
+
+/* form */
+.login-form { display: grid; gap: 14px; }
+
+.input-wrap {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  align-items: center;
+  background: #0a1220;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 0 10px;
+  height: 44px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+.input-wrap .input-icon {
+  display: grid; place-items: center; color: #8fa7d6;
+}
+.input-wrap input {
+  outline: none; border: 0; background: transparent; color: #e6f0ff;
+  height: 100%; font-size: 14px;
+}
+.input-wrap input::placeholder { color: #6f89bc; }
+
+/* buttons */
+.btn-primary {
+  height: 44px;
+  border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #2f6ff8, #224fe6);
+  color: white; font-weight: 600;
+  box-shadow: 0 8px 20px rgba(34,79,230,0.35);
+  cursor: pointer;
+}
+.btn-primary:disabled { opacity: .7; cursor: not-allowed; }
+.btn-ghost {
+  height: 40px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: transparent; color: #cfe0ff;
+  border-radius: 12px; cursor: pointer;
+}
+
+/* links & footer row */
+.row-between { display: flex; justify-content: space-between; align-items: center; }
+.link-muted { color: #9fb4e6; font-size: 13px; text-decoration: none; }
+.link-inline { background: none; border: 0; color: #9fb4e6; cursor: pointer; padding: 0; }
+.muted { color: #90a8d8; font-size: 13px; }
+.small { font-size: 12px; }
+
+/* OTP */
+.otp-label {
+  display: flex; align-items: center; gap: 8px;
+  color: #cfe0ff; font-size: 14px;
+}
+.otp-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;
+}
+.otp-box {
+  height: 50px; border-radius: 12px; text-align: center;
+  font-size: 20px; color: #e6f0ff; background: #0a1220;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* messages */
+.notice {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(35, 104, 255, 0.18);
+  color: #e7efff;
+  border: 1px solid rgba(255,255,255,0.14);
+}

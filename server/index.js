@@ -8,6 +8,8 @@ const mongoose = require("mongoose");
 const app = express();
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
+app.use("/admin", require("./routes/admin"));
+app.use("/public", require("./routes/public"));
 app.use(express.json());
 app.use(cookieParser());
 

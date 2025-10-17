@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/http";
 import { useAuth } from "../store/auth";
 
@@ -8,6 +9,7 @@ export default function LoginPassword() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const navigate = useNavigate();   // ✅ Add this line
 
   const submit = async (e) => {
     e.preventDefault();
@@ -16,7 +18,7 @@ export default function LoginPassword() {
     try {
       const { data } = await api.post("/auth/login-password", { email, password });
       setSession({ accessToken: data.accessToken, user: data.user });
-      setMsg("Logged in!");
+      navigate(data.user.role === "admin" ? "/admin/dashboard" : "/dashboard", { replace: true });
     } catch (e) {
       setMsg(e.response?.data?.error || "Login failed");
     } finally {
@@ -36,6 +38,7 @@ export default function LoginPassword() {
           required
         />
       </div>
+
       <div className="input-wrap">
         <span className="input-icon">🔒</span>
         <input
@@ -46,9 +49,11 @@ export default function LoginPassword() {
           required
         />
       </div>
+
       <button className="btn-primary" disabled={busy}>
         {busy ? "Signing in..." : "Login"}
       </button>
+
       {msg && <div className="notice">{msg}</div>}
     </form>
   );

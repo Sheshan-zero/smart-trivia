@@ -7,40 +7,29 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const { accessToken } = useAuth.getState();
-  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  const token = useAuth.getState().accessToken;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
-let refreshing = null;
 
+let refreshing = null;
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    const status = error.response?.status;
-
-    if (status === 401 && !original._retry) {
-      original._retry = true;
+    if (error.response?.status === 401 && !original.__retried) {
       try {
-        await axios.post(
-          (import.meta.env.VITE_API_URL || "http://localhost:5000") + "/auth/refresh",
-          {},
-          { withCredentials: true }
-        );
-        const rf = await axios.post(
-          (import.meta.env.VITE_API_URL || "http://localhost:5000") + "/auth/refresh",
-          {},
-          { withCredentials: true }
-        );
-        const newToken = rf.data?.accessToken;
-        if (newToken) {
-          const { user } = useAuth.getState();
-          useAuth.getState().setSession({ accessToken: newToken, user });
-          original.headers.Authorization = `Bearer ${newToken}`;
-          return api(original);
+        if (!refreshing) {
+          refreshing = api.post("/auth/refresh").finally(() => (refreshing = null));
         }
+        const { data } = await refreshing; 
+        useAuth.getState().setAccessToken(data.accessToken);
+        original.headers = { ...(original.headers || {}), Authorization: `Bearer ${data.accessToken}` };
+        original.__retried = true;
+        return api.request(original);
       } catch {
         useAuth.getState().clearSession();
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);

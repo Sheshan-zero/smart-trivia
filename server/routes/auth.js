@@ -2,50 +2,40 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
 const { sendOtpEmail } = require("../utils/mailer");
-const { signAccessToken, signRefreshToken } = require("../utils/jwt");
-const mongoose = require("mongoose");
-const router = express.Router();
-const User = mongoose.models.User;
-const Otp = mongoose.models.Otp;
+const { signAccessToken, signRefreshToken, verifyRefresh } = require("../utils/jwt");
 const { authRequired } = require("../middleware/auth");
-const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const Otp = require("../models/Otp");
 
+const router = express.Router();
 
 const otpRequestLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, 
-  max: 5,                    
+  windowMs: 10 * 60 * 1000, // 10 mins
+  max: 5,
   message: { error: "Too many OTP requests. Please wait and try again." },
 });
+
 const otpVerifyLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 10,
   message: { error: "Too many attempts. Please wait and try again." },
 });
 
-
-function normalizeEmail(e) {
-  return String(e || "").trim().toLowerCase();
-}
-function random6() {
-  return (Math.floor(100000 + Math.random() * 900000)).toString();
-}
-
+const normalizeEmail = (e) => String(e || "").trim().toLowerCase();
+const random6 = () => (Math.floor(100000 + Math.random() * 900000)).toString();
 
 router.post("/request-otp", otpRequestLimiter, async (req, res) => {
   try {
     const { email, purpose } = req.body || {};
     const normalized = normalizeEmail(email);
     if (!normalized) return res.status(400).json({ error: "Email is required" });
-    if (!["login", "reset"].includes(purpose)) {
-      return res.status(400).json({ error: "Invalid purpose" });
-    }
+    if (!["login", "reset"].includes(purpose)) return res.status(400).json({ error: "Invalid purpose" });
 
     const code = random6();
     const codeHash = await bcrypt.hash(code, 10);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await Otp.create({ email: normalized, codeHash, purpose, expiresAt, attempts: 0 });
-
     await sendOtpEmail(normalized, code);
 
     res.json({ ok: true, message: "OTP sent if the email is valid." });
@@ -55,15 +45,12 @@ router.post("/request-otp", otpRequestLimiter, async (req, res) => {
   }
 });
 
-
 router.post("/verify-otp", otpVerifyLimiter, async (req, res) => {
   try {
     const { email, code, purpose } = req.body || {};
     const normalized = normalizeEmail(email);
     if (!normalized || !code) return res.status(400).json({ error: "Email and code are required" });
-    if (!["login", "reset"].includes(purpose)) {
-      return res.status(400).json({ error: "Invalid purpose" });
-    }
+    if (!["login", "reset"].includes(purpose)) return res.status(400).json({ error: "Invalid purpose" });
 
     const otp = await Otp.findOne({ email: normalized, purpose }).sort({ createdAt: -1 });
     if (!otp) return res.status(400).json({ error: "Invalid or expired code" });
@@ -79,15 +66,11 @@ router.post("/verify-otp", otpVerifyLimiter, async (req, res) => {
 
     let user = await User.findOne({ email: normalized });
     if (purpose === "login") {
-      if (!user) {
-        user = await User.create({ email: normalized, role: "student" });
-      }
+      if (!user) user = await User.create({ email: normalized, role: "student" });
     }
-
     if (purpose === "reset") {
       return res.json({ ok: true, resetAllowed: true });
     }
-
 
     const payload = { uid: user._id.toString(), role: user.role, email: user.email };
     const accessToken = signAccessToken(payload);
@@ -95,17 +78,13 @@ router.post("/verify-otp", otpVerifyLimiter, async (req, res) => {
 
     res.cookie("rt", refreshToken, {
       httpOnly: true,
-      secure: false,         
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/",
     });
 
-    res.json({
-      ok: true,
-      user: { id: user._id, email: user.email, role: user.role },
-      accessToken,
-    });
+    res.json({ ok: true, user: { id: user._id, email: user.email, role: user.role }, accessToken });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Verification failed" });
@@ -113,8 +92,6 @@ router.post("/verify-otp", otpVerifyLimiter, async (req, res) => {
 });
 
 router.post("/refresh", async (req, res) => {
-  const jwt = require("jsonwebtoken");
-  const { verifyRefresh, signAccessToken } = require("../utils/jwt");
   try {
     const token = req.cookies?.rt;
     if (!token) return res.status(401).json({ error: "No refresh token" });
@@ -134,7 +111,7 @@ router.post("/logout", (req, res) => {
 router.post("/signup", async (req, res) => {
   try {
     const { email, password, name, role } = req.body || {};
-    const normalized = (email || "").trim().toLowerCase();
+    const normalized = normalizeEmail(email);
     if (!normalized || !password) return res.status(400).json({ error: "Email and password required" });
 
     const existing = await User.findOne({ email: normalized });
@@ -151,7 +128,13 @@ router.post("/signup", async (req, res) => {
     const payload = { uid: user._id.toString(), role: user.role, email: user.email };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
-    res.cookie("rt", refreshToken, { httpOnly: true, secure: false, sameSite: "lax", maxAge: 7*24*60*60*1000, path: "/" });
+    res.cookie("rt", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
 
     res.status(201).json({ ok: true, user: { id: user._id, email: user.email, role: user.role }, accessToken });
   } catch (e) {
@@ -163,7 +146,7 @@ router.post("/signup", async (req, res) => {
 router.post("/login-password", async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    const normalized = (email || "").trim().toLowerCase();
+    const normalized = normalizeEmail(email);
     if (!normalized || !password) return res.status(400).json({ error: "Email and password required" });
 
     const user = await User.findOne({ email: normalized });
@@ -175,7 +158,13 @@ router.post("/login-password", async (req, res) => {
     const payload = { uid: user._id.toString(), role: user.role, email: user.email };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
-    res.cookie("rt", refreshToken, { httpOnly: true, secure: false, sameSite: "lax", maxAge: 7*24*60*60*1000, path: "/" });
+    res.cookie("rt", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
 
     res.json({ ok: true, user: { id: user._id, email: user.email, role: user.role }, accessToken });
   } catch (e) {
@@ -187,7 +176,7 @@ router.post("/login-password", async (req, res) => {
 router.post("/reset-password", async (req, res) => {
   try {
     const { email, code, newPassword } = req.body || {};
-    const normalized = (email || "").trim().toLowerCase();
+    const normalized = normalizeEmail(email);
     if (!normalized || !code || !newPassword) {
       return res.status(400).json({ error: "Email, code and newPassword are required" });
     }
@@ -212,6 +201,7 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
+
 router.get("/me", authRequired, async (req, res) => {
   try {
     const user = await User.findById(req.user.uid).select("_id email role name createdAt");
@@ -221,6 +211,5 @@ router.get("/me", authRequired, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
-
 
 module.exports = router;

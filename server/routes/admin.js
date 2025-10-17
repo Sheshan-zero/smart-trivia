@@ -3,15 +3,36 @@ const { authRequired, isAdmin } = require("../middleware/auth");
 const Module = require("../models/Module");
 const Quiz = require("../models/Quiz");
 const Question = require("../models/Question");
+const User = require("../models/User");
+
 const router = express.Router();
 
 router.use(authRequired, isAdmin);
 
+router.get("/stats", async (req, res) => {
+  try {
+    const [users, quizzes] = await Promise.all([
+      User.countDocuments(),
+      Quiz.countDocuments(),
+    ]);
+    res.json({ ok: true, users, quizzes, reports: 0, approvals: 3 });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to load stats" });
+  }
+});
+
 router.post("/modules", async (req, res) => {
   try {
     const { title, code, description, isActive = true } = req.body || {};
-    if (!title || !code) return res.status(400).json({ error: "title and code required" });
-    const mod = await Module.create({ title, code, description, isActive, createdBy: req.user.uid });
+    if (!title || !code)
+      return res.status(400).json({ error: "title and code required" });
+    const mod = await Module.create({
+      title,
+      code,
+      description,
+      isActive,
+      createdBy: req.user.uid,
+    });
     res.status(201).json({ ok: true, module: mod });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -19,8 +40,12 @@ router.post("/modules", async (req, res) => {
 });
 
 router.get("/modules", async (req, res) => {
-  const list = await Module.find().sort({ createdAt: -1 });
-  res.json({ ok: true, modules: list });
+  try {
+    const list = await Module.find().sort({ createdAt: -1 });
+    res.json({ ok: true, modules: list });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.patch("/modules/:id", async (req, res) => {
@@ -37,8 +62,16 @@ router.patch("/modules/:id", async (req, res) => {
 router.post("/quizzes", async (req, res) => {
   try {
     const { moduleId, title, description = "", durationSeconds, isPublished = false } = req.body || {};
-    if (!moduleId || !title || !durationSeconds) return res.status(400).json({ error: "moduleId, title, durationSeconds required" });
-    const quiz = await Quiz.create({ moduleId, title, description, durationSeconds, isPublished, createdBy: req.user.uid });
+    if (!moduleId || !title || !durationSeconds)
+      return res.status(400).json({ error: "moduleId, title, durationSeconds required" });
+    const quiz = await Quiz.create({
+      moduleId,
+      title,
+      description,
+      durationSeconds,
+      isPublished,
+      createdBy: req.user.uid,
+    });
     res.status(201).json({ ok: true, quiz });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -46,8 +79,12 @@ router.post("/quizzes", async (req, res) => {
 });
 
 router.get("/quizzes/:moduleId", async (req, res) => {
-  const quizzes = await Quiz.find({ moduleId: req.params.moduleId }).sort({ createdAt: -1 });
-  res.json({ ok: true, quizzes });
+  try {
+    const quizzes = await Quiz.find({ moduleId: req.params.moduleId }).sort({ createdAt: -1 });
+    res.json({ ok: true, quizzes });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.patch("/quiz/:id", async (req, res) => {
@@ -63,10 +100,11 @@ router.patch("/quiz/:id", async (req, res) => {
 router.post("/questions", async (req, res) => {
   try {
     const { quizId, type = "mcq", text, options = [], correctKeys = [], marks = 1 } = req.body || {};
-    if (!quizId || !text) return res.status(400).json({ error: "quizId and text required" });
-    if (type !== "multi" && correctKeys.length > 1) {
+    if (!quizId || !text)
+      return res.status(400).json({ error: "quizId and text required" });
+    if (type !== "multi" && correctKeys.length > 1)
       return res.status(400).json({ error: "Only one correct key allowed for this type" });
-    }
+
     const q = await Question.create({ quizId, type, text, options, correctKeys, marks });
     res.status(201).json({ ok: true, question: q });
   } catch (e) {
@@ -75,8 +113,12 @@ router.post("/questions", async (req, res) => {
 });
 
 router.get("/questions/:quizId", async (req, res) => {
-  const qs = await Question.find({ quizId: req.params.quizId }).sort({ createdAt: 1 });
-  res.json({ ok: true, questions: qs });
+  try {
+    const qs = await Question.find({ quizId: req.params.quizId }).sort({ createdAt: 1 });
+    res.json({ ok: true, questions: qs });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.patch("/question/:id", async (req, res) => {

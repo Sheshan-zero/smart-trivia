@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/http";
 import { useAuth } from "../store/auth";
 import LoginPassword from "./LoginPassword";
+import { useNavigate, Link } from "react-router-dom";
 
 const MailIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -20,22 +21,27 @@ export default function LoginEmail() {
   const { user } = useAuth();
   const setSession = useAuth((s) => s.setSession);
 
-
   const [tab, setTab] = useState("otp");
   const [email, setEmail] = useState("");
   const [step, setStep] = useState("email");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = "Smart Trivia — Login";
-  }, []);
+    if (user) {
+      navigate(user.role === "admin" ? "/admin/dashboard" : "/dashboard", { replace: true });
+    }
+  }, [user, navigate]);
+
+  useEffect(() => { document.title = "Smart Trivia — Login"; }, []);
+  useEffect(() => { setMsg(""); }, [tab, step]);
 
   const handleSendOtp = async (e) => {
     e?.preventDefault?.();
-    setBusy(true);
-    setMsg("");
+    if (!email) return;
+    setBusy(true); setMsg("");
     try {
       await api.post("/auth/request-otp", { email, purpose: "login" });
       setStep("otp");
@@ -49,13 +55,12 @@ export default function LoginEmail() {
 
   const handleVerify = async (e) => {
     e.preventDefault();
-    setBusy(true);
-    setMsg("");
+    setBusy(true); setMsg("");
     try {
       const code = otp.join("");
       const { data } = await api.post("/auth/verify-otp", { email, code, purpose: "login" });
       setSession({ accessToken: data.accessToken, user: data.user });
-      setMsg("Logged in!");
+      navigate(data.user.role === "admin" ? "/admin/dashboard" : "/dashboard", { replace: true });
     } catch (e) {
       setMsg(e.response?.data?.error || "Verification failed");
     } finally {
@@ -63,35 +68,17 @@ export default function LoginEmail() {
     }
   };
 
-  const updateOtpAt = (index, value) => {
-    if (!/^\d?$/.test(value)) return; 
-    const copy = [...otp];
-    copy[index] = value;
-    setOtp(copy);
+  const updateOtpAt = (i, v) => {
+    if (!/^\d?$/.test(v)) return;
+    const a = [...otp]; a[i] = v; setOtp(a);
   };
-
   const handleOtpKey = (i, e) => {
     if (e.key === "Backspace" && !otp[i] && i > 0) {
-      const prev = document.getElementById(`otp-${i - 1}`);
-      prev?.focus(); prev?.select?.();
+      document.getElementById(`otp-${i-1}`)?.focus();
     } else if (/\d/.test(e.key) && i < 5) {
-      setTimeout(() => document.getElementById(`otp-${i + 1}`)?.focus(), 0);
+      setTimeout(() => document.getElementById(`otp-${i+1}`)?.focus(), 0);
     }
   };
-
-  if (user) {
-    return (
-      <div className="login-shell">
-        <HeaderBrand />
-        <div className="login-center">
-          <div className="login-card">
-            <h2 className="login-title">You're in 🎉</h2>
-            <p className="login-sub">Welcome, {user.email}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="login-shell">
@@ -102,18 +89,10 @@ export default function LoginEmail() {
           <p className="login-sub">Choose your method</p>
 
           <div className="tabs">
-            <button
-              className={`tab ${tab === "otp" ? "active" : ""}`}
-              onClick={() => setTab("otp")}
-              type="button"
-            >
+            <button className={`tab ${tab === "otp" ? "active" : ""}`} onClick={() => setTab("otp")} type="button">
               OTP Login
             </button>
-            <button
-              className={`tab ${tab === "password" ? "active" : ""}`}
-              onClick={() => setTab("password")}
-              type="button"
-            >
+            <button className={`tab ${tab === "password" ? "active" : ""}`} onClick={() => setTab("password")} type="button">
               Password Login
             </button>
           </div>
@@ -124,20 +103,17 @@ export default function LoginEmail() {
               email={email}
               setEmail={setEmail}
               otp={otp}
-              setOtp={setOtp}
               busy={busy}
-              msg={msg}
-              setMsg={setMsg}
               handleSendOtp={handleSendOtp}
               handleVerify={handleVerify}
               updateOtpAt={updateOtpAt}
               handleOtpKey={handleOtpKey}
               setStep={setStep}
+              msg={msg}
             />
           ) : (
             <LoginPassword />
           )}
-          {tab === "otp" && msg && <div className="notice">{msg}</div>}
         </div>
       </div>
     </div>
@@ -145,16 +121,8 @@ export default function LoginEmail() {
 }
 
 function OtpPanel({
-  step,
-  email,
-  setEmail,
-  otp,
-  busy,
-  handleSendOtp,
-  handleVerify,
-  updateOtpAt,
-  handleOtpKey,
-  setStep,
+  step, email, setEmail, otp, busy,
+  handleSendOtp, handleVerify, updateOtpAt, handleOtpKey, setStep, msg,
 }) {
   return (
     <>
@@ -171,16 +139,18 @@ function OtpPanel({
             />
           </div>
 
-          <button className="btn-primary" disabled={busy}>
+          <button className="btn-primary" disabled={busy || !email}>
             {busy ? "Sending..." : "Send OTP"}
           </button>
 
           <div className="row-between">
-            <a className="link-muted" href="/forgot">Forgot password?</a>
+            <Link className="link-muted" to="/forgot">Forgot password?</Link>
             <span className="muted">
-              No account? <a className="link-inline" href="/signup">Sign up</a>
+              No account? <Link className="link-inline" to="/signup">Sign up</Link>
             </span>
           </div>
+
+          {msg && <div className="notice" style={{ marginTop: 10 }}>{msg}</div>}
         </form>
       )}
 
@@ -206,14 +176,11 @@ function OtpPanel({
             {busy ? "Verifying..." : "Login"}
           </button>
 
-          <button
-            type="button"
-            className="btn-ghost"
-            disabled={busy}
-            onClick={() => setStep("email")}
-          >
+          <button type="button" className="btn-ghost" disabled={busy} onClick={() => setStep("email")}>
             ← Change email
           </button>
+
+          {msg && <div className="notice" style={{ marginTop: 10 }}>{msg}</div>}
 
           <p className="muted small">
             Didn’t get it? Check spam or{" "}

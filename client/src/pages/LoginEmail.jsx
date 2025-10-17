@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/http";
 import { useAuth } from "../store/auth";
+import LoginPassword from "./LoginPassword"; // uses /auth/login-password
 
+// Icons (inline SVGs to avoid extra libs)
 const MailIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
     <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.6" />
     <path d="M4 7l8 6 8-6" stroke="currentColor" strokeWidth="1.6" fill="none" />
   </svg>
 );
-
 const LockIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
     <rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" strokeWidth="1.6"/>
@@ -16,12 +17,16 @@ const LockIcon = () => (
   </svg>
 );
 
-export default function Login() {
+export default function LoginEmail() {
   const { user } = useAuth();
   const setSession = useAuth((s) => s.setSession);
 
+  // tabs: 'otp' | 'password'
+  const [tab, setTab] = useState("otp");
+
+  // OTP flow state
   const [email, setEmail] = useState("");
-  const [step, setStep] = useState("email"); // "email" | "otp"
+  const [step, setStep] = useState("email"); // 'email' | 'otp'
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,8 +35,9 @@ export default function Login() {
     document.title = "Smart Trivia — Login";
   }, []);
 
+  // ----- OTP handlers -----
   const handleSendOtp = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     setBusy(true);
     setMsg("");
     try {
@@ -62,7 +68,7 @@ export default function Login() {
   };
 
   const updateOtpAt = (index, value) => {
-    if (!/^\d?$/.test(value)) return; 
+    if (!/^\d?$/.test(value)) return; // only a single digit
     const copy = [...otp];
     copy[index] = value;
     setOtp(copy);
@@ -71,8 +77,7 @@ export default function Login() {
   const handleOtpKey = (i, e) => {
     if (e.key === "Backspace" && !otp[i] && i > 0) {
       const prev = document.getElementById(`otp-${i - 1}`);
-      prev?.focus();
-      prev?.select?.();
+      prev?.focus(); prev?.select?.();
     } else if (/\d/.test(e.key) && i < 5) {
       setTimeout(() => document.getElementById(`otp-${i + 1}`)?.focus(), 0);
     }
@@ -98,84 +103,143 @@ export default function Login() {
       <div className="login-center">
         <div className="login-card">
           <h2 className="login-title">Log in to your account</h2>
-          <p className="login-sub">Log in to your account!</p>
+          <p className="login-sub">Choose your method</p>
 
-          {step === "email" && (
-            <form className="login-form" onSubmit={handleSendOtp}>
-              <div className="input-wrap">
-                <span className="input-icon"><MailIcon /></span>
-                <input
-                  type="email"
-                  placeholder="Email id"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
+          {/* Tabs */}
+          <div className="tabs">
+            <button
+              className={`tab ${tab === "otp" ? "active" : ""}`}
+              onClick={() => setTab("otp")}
+              type="button"
+            >
+              OTP Login
+            </button>
+            <button
+              className={`tab ${tab === "password" ? "active" : ""}`}
+              onClick={() => setTab("password")}
+              type="button"
+            >
+              Password Login
+            </button>
+          </div>
 
-              <button className="btn-primary" disabled={busy}>
-                {busy ? "Sending..." : "Send OTP"}
-              </button>
-              <div className="row-between">
-                <a className="link-muted" href="#forgot">Forgot password?</a>
-                <span className="muted">
-                  Already have an account? <a className="link-inline" href="#login">Login here</a>
-                </span>
-              </div>
-            </form>
+          {/* Panels */}
+          {tab === "otp" ? (
+            <OtpPanel
+              step={step}
+              email={email}
+              setEmail={setEmail}
+              otp={otp}
+              setOtp={setOtp}
+              busy={busy}
+              msg={msg}
+              setMsg={setMsg}
+              handleSendOtp={handleSendOtp}
+              handleVerify={handleVerify}
+              updateOtpAt={updateOtpAt}
+              handleOtpKey={handleOtpKey}
+              setStep={setStep}
+            />
+          ) : (
+            <LoginPassword />
           )}
 
-          {step === "otp" && (
-            <form className="login-form" onSubmit={handleVerify}>
-              <label className="otp-label"><LockIcon /> Enter 6-digit code</label>
-              <div className="otp-grid">
-                {otp.map((v, i) => (
-                  <input
-                    key={i}
-                    id={`otp-${i}`}
-                    className="otp-box"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={v}
-                    onChange={(e) => updateOtpAt(i, e.target.value)}
-                    onKeyDown={(e) => handleOtpKey(i, e)}
-                  />
-                ))}
-              </div>
-
-              <button className="btn-primary" disabled={busy}>
-                {busy ? "Verifying..." : "Login"}
-              </button>
-
-              <button
-                type="button"
-                className="btn-ghost"
-                disabled={busy}
-                onClick={() => setStep("email")}
-              >
-                ← Change email
-              </button>
-
-              <p className="muted small">
-                Didn’t get it? Check spam or{" "}
-                <button type="button" className="link-inline" onClick={handleSendOtp} disabled={busy}>
-                  resend OTP
-                </button>.
-              </p>
-            </form>
-          )}
-
-          {msg && <div className="notice">{msg}</div>}
+          {/* Shared notice for OTP messages (password panel shows its own msg) */}
+          {tab === "otp" && msg && <div className="notice">{msg}</div>}
         </div>
       </div>
     </div>
   );
 }
 
+/* --------- Subcomponents --------- */
+
+function OtpPanel({
+  step,
+  email,
+  setEmail,
+  otp,
+  busy,
+  handleSendOtp,
+  handleVerify,
+  updateOtpAt,
+  handleOtpKey,
+  setStep,
+}) {
+  return (
+    <>
+      {step === "email" && (
+        <form className="login-form" onSubmit={handleSendOtp}>
+          <div className="input-wrap">
+            <span className="input-icon"><MailIcon /></span>
+            <input
+              type="email"
+              placeholder="Email id"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <button className="btn-primary" disabled={busy}>
+            {busy ? "Sending..." : "Send OTP"}
+          </button>
+
+          <div className="row-between">
+            <a className="link-muted" href="/forgot">Forgot password?</a>
+            <span className="muted">
+              No account? <a className="link-inline" href="/signup">Sign up</a>
+            </span>
+          </div>
+        </form>
+      )}
+
+      {step === "otp" && (
+        <form className="login-form form-narrow" onSubmit={handleVerify}>
+          <label className="otp-label"><LockIcon /> Enter 6-digit code</label>
+          <div className="otp-grid">
+            {otp.map((v, i) => (
+              <input
+                key={i}
+                id={`otp-${i}`}
+                className="otp-box"
+                inputMode="numeric"
+                maxLength={1}
+                value={v}
+                onChange={(e) => updateOtpAt(i, e.target.value)}
+                onKeyDown={(e) => handleOtpKey(i, e)}
+              />
+            ))}
+          </div>
+
+          <button className="btn-primary" disabled={busy}>
+            {busy ? "Verifying..." : "Login"}
+          </button>
+
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={busy}
+            onClick={() => setStep("email")}
+          >
+            ← Change email
+          </button>
+
+          <p className="muted small">
+            Didn’t get it? Check spam or{" "}
+            <button type="button" className="link-inline" onClick={handleSendOtp} disabled={busy}>
+              resend OTP
+            </button>.
+          </p>
+        </form>
+      )}
+    </>
+  );
+}
+
 function HeaderBrand() {
   return (
     <header className="brand">
-      {/* replace with your logo image if you have one */}
       <div className="logo-dot">🧠</div>
       <span className="brand-text">SMART-TRIVIA</span>
     </header>

@@ -7,6 +7,8 @@ const mongoose = require("mongoose");
 const router = express.Router();
 const User = mongoose.models.User;
 const Otp = mongoose.models.Otp;
+const { authRequired } = require("../middleware/auth");
+const jwt = require("jsonwebtoken");
 
 
 const otpRequestLimiter = rateLimit({
@@ -207,6 +209,16 @@ router.post("/reset-password", async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Reset failed" });
+  }
+});
+
+router.get("/me", authRequired, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.uid).select("_id email role name createdAt");
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ ok: true, user });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
 

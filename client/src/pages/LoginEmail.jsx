@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/http";
 import { useAuth } from "../store/auth";
-import LoginPassword from "./LoginPassword"; // uses /auth/login-password
+import LoginPassword from "./LoginPassword";
 
-// Icons (inline SVGs to avoid extra libs)
 const MailIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
     <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.6" />
@@ -21,12 +20,10 @@ export default function LoginEmail() {
   const { user } = useAuth();
   const setSession = useAuth((s) => s.setSession);
 
-  // tabs: 'otp' | 'password'
-  const [tab, setTab] = useState("otp");
 
-  // OTP flow state
+  const [tab, setTab] = useState("otp");
   const [email, setEmail] = useState("");
-  const [step, setStep] = useState("email"); // 'email' | 'otp'
+  const [step, setStep] = useState("email");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,7 +32,6 @@ export default function LoginEmail() {
     document.title = "Smart Trivia — Login";
   }, []);
 
-  // ----- OTP handlers -----
   const handleSendOtp = async (e) => {
     e?.preventDefault?.();
     setBusy(true);
@@ -68,7 +64,7 @@ export default function LoginEmail() {
   };
 
   const updateOtpAt = (index, value) => {
-    if (!/^\d?$/.test(value)) return; // only a single digit
+    if (!/^\d?$/.test(value)) return; 
     const copy = [...otp];
     copy[index] = value;
     setOtp(copy);
@@ -105,7 +101,6 @@ export default function LoginEmail() {
           <h2 className="login-title">Log in to your account</h2>
           <p className="login-sub">Choose your method</p>
 
-          {/* Tabs */}
           <div className="tabs">
             <button
               className={`tab ${tab === "otp" ? "active" : ""}`}
@@ -123,7 +118,6 @@ export default function LoginEmail() {
             </button>
           </div>
 
-          {/* Panels */}
           {tab === "otp" ? (
             <OtpPanel
               step={step}
@@ -143,16 +137,12 @@ export default function LoginEmail() {
           ) : (
             <LoginPassword />
           )}
-
-          {/* Shared notice for OTP messages (password panel shows its own msg) */}
           {tab === "otp" && msg && <div className="notice">{msg}</div>}
         </div>
       </div>
     </div>
   );
 }
-
-/* --------- Subcomponents --------- */
 
 function OtpPanel({
   step,

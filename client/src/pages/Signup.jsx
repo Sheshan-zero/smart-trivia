@@ -76,6 +76,19 @@ export default function Signup() {
               />
             </div>
 
+            {/* optional – let you create admins manually */}
+            <div className="input-wrap">
+              <span className="input-icon">🛡️</span>
+              <select
+                value={form.role}
+                onChange={(e) => update("role", e.target.value)}
+                style={{ background: "transparent", color: "#e6f0ff", border: 0, height: "100%" }}
+              >
+                <option value="student">Student</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
             <button className="btn-primary" disabled={busy}>
               {busy ? "Creating..." : "Sign up"}
             </button>

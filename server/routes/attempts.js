@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const { authRequired } = require("../middleware/auth");
 const Attempt = require("../models/Attempt");
 const Quiz = require("../models/Quiz");
@@ -7,6 +8,7 @@ const Question = require("../models/Question");
 const router = express.Router();
 router.use(authRequired);
 
+// helper: compare sets equal
 const eq = (a = [], b = []) => {
   if (a.length !== b.length) return false;
   const as = new Set(a), bs = new Set(b);
@@ -14,12 +16,25 @@ const eq = (a = [], b = []) => {
   return true;
 };
 
+// guard: validate ObjectId params
+function ensureObjectId(req, res, next) {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ error: "Invalid attempt id" });
+  }
+  next();
+}
+
+/* ------------------------------------------------------------------
+ *  START / RESUME ATTEMPT
+ * ------------------------------------------------------------------ */
 router.post("/start", async (req, res) => {
   const { quizId } = req.body || {};
   if (!quizId) return res.status(400).json({ error: "quizId required" });
 
   const quiz = await Quiz.findById(quizId);
-  if (!quiz || !quiz.isPublished) return res.status(404).json({ error: "Quiz not available" });
+  if (!quiz || !quiz.isPublished) {
+    return res.status(404).json({ error: "Quiz not available" });
+  }
 
   const now = new Date();
   let attempt = await Attempt.findOne({
@@ -35,7 +50,7 @@ router.post("/start", async (req, res) => {
       startAt: attempt.startAt,
       endsAt: attempt.endsAt,
       status: attempt.status,
-      resume: true
+      resume: true,
     });
   }
 
@@ -55,15 +70,62 @@ router.post("/start", async (req, res) => {
     startAt,
     endsAt,
     status: attempt.status,
-    resume: false
+    resume: false,
   });
 });
 
-router.get("/:id", async (req, res) => {
-  const att = await Attempt.findById(req.params.id);
-  if (!att || String(att.userId) !== String(req.user.uid))
-    return res.status(404).json({ error: "Attempt not found" });
+/* ------------------------------------------------------------------
+ *  LIST MY ATTEMPTS (KEEP THIS ABOVE ANY /:id ROUTES)
+ * ------------------------------------------------------------------ */
+router.get("/mine", async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
 
+  const attempts = await Attempt.find({ userId: req.user.uid })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate({ path: "quizId", select: "title moduleId durationSeconds" });
+
+  // include module titles/codes
+  const Module = require("../models/Module");
+  const moduleIds = [
+    ...new Set(
+      attempts
+        .map((a) => a.quizId?.moduleId)
+        .filter(Boolean)
+        .map((id) => String(id))
+    ),
+  ];
+  const modules = await Module.find({ _id: { $in: moduleIds } }).select("title code");
+  const modMap = new Map(modules.map((m) => [String(m._id), m]));
+
+  const data = attempts.map((a) => {
+    const q = a.quizId || {};
+    const m = modMap.get(String(q.moduleId)) || {};
+    return {
+      id: a._id,
+      status: a.status,
+      score: a.score,
+      durationSeconds: a.durationSeconds,
+      startAt: a.startAt,
+      submittedAt: a.submittedAt,
+      quiz: { id: q._id, title: q.title, durationSeconds: q.durationSeconds },
+      module: { id: m._id, title: m.title, code: m.code },
+    };
+  });
+
+  res.json({ ok: true, attempts: data });
+});
+
+/* ------------------------------------------------------------------
+ *  RESUME / SAVE / SUBMIT / RESULT (/:id routes)
+ * ------------------------------------------------------------------ */
+
+// GET /attempts/:id -> resume info
+router.get("/:id", ensureObjectId, async (req, res) => {
+  const att = await Attempt.findById(req.params.id);
+  if (!att || String(att.userId) !== String(req.user.uid)) {
+    return res.status(404).json({ error: "Attempt not found" });
+  }
   res.json({
     ok: true,
     attempt: {
@@ -74,35 +136,50 @@ router.get("/:id", async (req, res) => {
       status: att.status,
       responses: att.responses,
       submittedAt: att.submittedAt,
-      score: att.score
-    }
+      score: att.score,
+    },
   });
 });
 
-router.post("/:id/save", async (req, res) => {
+// POST /attempts/:id/save
+router.post("/:id/save", ensureObjectId, async (req, res) => {
   const att = await Attempt.findById(req.params.id);
-  if (!att || String(att.userId) !== String(req.user.uid))
+  if (!att || String(att.userId) !== String(req.user.uid)) {
     return res.status(404).json({ error: "Attempt not found" });
-  if (att.status !== "started") return res.status(400).json({ error: "Attempt not active" });
-  const map = new Map(att.responses.map(r => [String(r.questionId), r]));
-  for (const r of (req.body?.responses || [])) {
-    map.set(String(r.questionId), { questionId: r.questionId, chosenKeys: r.chosenKeys || [] });
+  }
+  if (att.status !== "started") {
+    return res.status(400).json({ error: "Attempt not active" });
+  }
+  const map = new Map(att.responses.map((r) => [String(r.questionId), r]));
+  for (const r of req.body?.responses || []) {
+    map.set(String(r.questionId), {
+      questionId: r.questionId,
+      chosenKeys: r.chosenKeys || [],
+    });
   }
   att.responses = [...map.values()];
   await att.save();
   res.json({ ok: true });
 });
 
-router.post("/:id/submit", async (req, res) => {
+// POST /attempts/:id/submit
+router.post("/:id/submit", ensureObjectId, async (req, res) => {
   const GRACE_MS = 10 * 1000; // 10s grace
   const att = await Attempt.findById(req.params.id);
-  if (!att || String(att.userId) !== String(req.user.uid))
+  if (!att || String(att.userId) !== String(req.user.uid)) {
     return res.status(404).json({ error: "Attempt not found" });
-  if (att.status !== "started") return res.status(400).json({ error: "Already submitted" });
+  }
+  if (att.status !== "started") {
+    return res.status(400).json({ error: "Already submitted" });
+  }
 
-  const map = new Map(att.responses.map(r => [String(r.questionId), r]));
-  for (const r of (req.body?.responses || [])) {
-    map.set(String(r.questionId), { questionId: r.questionId, chosenKeys: r.chosenKeys || [] });
+  // merge final responses
+  const map = new Map(att.responses.map((r) => [String(r.questionId), r]));
+  for (const r of req.body?.responses || []) {
+    map.set(String(r.questionId), {
+      questionId: r.questionId,
+      chosenKeys: r.chosenKeys || [],
+    });
   }
   att.responses = [...map.values()];
 
@@ -116,8 +193,9 @@ router.post("/:id/submit", async (req, res) => {
     return res.status(400).json({ error: "Time up. Attempt expired." });
   }
 
+  // score
   const questions = await Question.find({ quizId: att.quizId }).select("_id correctKeys marks");
-  const qMap = new Map(questions.map(q => [String(q._id), q]));
+  const qMap = new Map(questions.map((q) => [String(q._id), q]));
   let score = 0;
   const review = [];
   for (const r of att.responses) {
@@ -130,7 +208,7 @@ router.post("/:id/submit", async (req, res) => {
       chosenKeys: r.chosenKeys || [],
       correctKeys: q.correctKeys || [],
       marks: q.marks || 1,
-      correct
+      correct,
     });
   }
 
@@ -143,34 +221,40 @@ router.post("/:id/submit", async (req, res) => {
   res.json({ ok: true, score, durationSeconds: att.durationSeconds, review });
 });
 
-router.get("/:id/result", async (req, res) => {
+// GET /attempts/:id/result
+router.get("/:id/result", ensureObjectId, async (req, res) => {
   const att = await Attempt.findById(req.params.id);
-  if (!att || String(att.userId) !== String(req.user.uid))
+  if (!att || String(att.userId) !== String(req.user.uid)) {
     return res.status(404).json({ error: "Attempt not found" });
-  if (att.status !== "submitted") return res.status(400).json({ error: "Not submitted yet" });
+  }
+  if (att.status !== "submitted") {
+    return res.status(400).json({ error: "Not submitted yet" });
+  }
 
   const qs = await Question.find({ quizId: att.quizId }).select("_id text options correctKeys marks");
-  const qMap = new Map(qs.map(q => [String(q._id), q]));
-  const breakdown = att.responses.map(r => {
-    const q = qMap.get(String(r.questionId));
-    if (!q) return null;
-    const correct = eq((r.chosenKeys || []).sort(), (q.correctKeys || []).sort());
-    return {
-      questionId: q._id,
-      text: q.text,
-      options: q.options,
-      chosenKeys: r.chosenKeys || [],
-      correctKeys: q.correctKeys || [],
-      marks: q.marks || 1,
-      correct
-    };
-  }).filter(Boolean);
+  const qMap = new Map(qs.map((q) => [String(q._id), q]));
+  const breakdown = att.responses
+    .map((r) => {
+      const q = qMap.get(String(r.questionId));
+      if (!q) return null;
+      const correct = eq((r.chosenKeys || []).sort(), (q.correctKeys || []).sort());
+      return {
+        questionId: q._id,
+        text: q.text,
+        options: q.options,
+        chosenKeys: r.chosenKeys || [],
+        correctKeys: q.correctKeys || [],
+        marks: q.marks || 1,
+        correct,
+      };
+    })
+    .filter(Boolean);
 
   res.json({
     ok: true,
     score: att.score,
     durationSeconds: att.durationSeconds,
-    breakdown
+    breakdown,
   });
 });
 

@@ -5,18 +5,23 @@ import { api } from "../api/http";
 export default function QuizPlayer() {
   const { quizId } = useParams();
   const nav = useNavigate();
+
   const [questions, setQuestions] = useState([]);
   const [attemptId, setAttemptId] = useState(null);
-  const [endsAt, setEndsAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // responses state: { [questionId]: [keys] }
-  const [answers, setAnswers] = useState({});
+  // timer (server-authoritative)
   const timerRef = useRef(null);
   const [remaining, setRemaining] = useState(0); // seconds
 
-  // fetch questions (without answers) + start attempt
+  // answers: { [questionId]: [keys] }
+  const [answers, setAnswers] = useState({});
+
+  // single-question view
+  const [idx, setIdx] = useState(0);
+
+  // fetch questions + start/resume attempt
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -28,15 +33,14 @@ export default function QuizPlayer() {
         const { data: sd } = await api.post("/attempts/start", { quizId });
         if (!mounted) return;
         setAttemptId(sd.attemptId);
-        setEndsAt(sd.endsAt);
 
-        // resume answers if any
+        // resume answers
         const { data: ad } = await api.get(`/attempts/${sd.attemptId}`);
         const map = {};
         for (const r of ad.attempt.responses || []) map[r.questionId] = r.chosenKeys || [];
         setAnswers(map);
 
-        // start countdown based on server endsAt
+        // timer
         const endMs = new Date(sd.endsAt).getTime();
         const tick = () => {
           const rem = Math.max(0, Math.floor((endMs - Date.now()) / 1000));
@@ -55,27 +59,7 @@ export default function QuizPlayer() {
     return () => { mounted = false; clearInterval(timerRef.current); };
   }, [quizId, nav]);
 
-  const formatted = useMemo(() => {
-    const m = Math.floor(remaining / 60).toString().padStart(2, "0");
-    const s = (remaining % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
-  }, [remaining]);
-
-  const toggle = (qid, key, multi) => {
-    setAnswers(prev => {
-      const cur = prev[qid] || [];
-      if (multi) {
-        const set = new Set(cur);
-        set.has(key) ? set.delete(key) : set.add(key);
-        return { ...prev, [qid]: [...set] };
-      } else {
-        // single choice
-        return { ...prev, [qid]: [key] };
-      }
-    });
-  };
-
-  // autosave (optional) every 8s
+  // autosave every 8s
   useEffect(() => {
     if (!attemptId) return;
     const h = setInterval(() => {
@@ -84,6 +68,36 @@ export default function QuizPlayer() {
     }, 8000);
     return () => clearInterval(h);
   }, [attemptId, answers]);
+
+  const formatted = useMemo(() => {
+    const m = Math.floor(remaining / 60).toString().padStart(2, "0");
+    const s = (remaining % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  }, [remaining]);
+
+  // helpers
+  const nowOver = remaining <= 0;
+  const total = questions.length;
+  const q = questions[idx];
+  const chosen = new Set(answers[q?._id] || []);
+  const percent = total ? Math.round(((idx + 1) / total) * 100) : 0;
+
+  const selectKey = (key) => {
+    if (!q || nowOver) return;
+    setAnswers(prev => {
+      const cur = prev[q._id] || [];
+      if (q.type === "multi") {
+        const s = new Set(cur);
+        s.has(key) ? s.delete(key) : s.add(key);
+        return { ...prev, [q._id]: [...s] };
+      }
+      // single choice
+      return { ...prev, [q._id]: [key] };
+    });
+  };
+
+  const goPrev = () => setIdx(i => Math.max(0, i - 1));
+  const goNext = () => setIdx(i => Math.min(total - 1, i + 1));
 
   const submit = async () => {
     if (!attemptId) return;
@@ -100,52 +114,65 @@ export default function QuizPlayer() {
     }
   };
 
-  if (loading) return <div style={{ padding: 24 }}>Loading quiz…</div>;
+  if (loading || !q) return <div style={{ padding: 24 }}>Loading quiz…</div>;
 
-  const nowOver = remaining <= 0;
+  const last = idx === total - 1;
+  const canNext = q.type === "multi" ? chosen.size > 0 : chosen.size === 1;
 
   return (
-    <div style={{ maxWidth: 900, margin: "24px auto" }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <h2>Quiz</h2>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>{nowOver ? "00:00" : formatted}</div>
+    <div className="qp-wrap">
+      <div className="qp-card">
+        {/* Header: progress + timer */}
+        <div className="qp-head">
+          <div className="qp-progress">
+            <div className="qp-progress-top">
+              <span>Question {idx + 1}/{total}</span>
+            </div>
+            <div className="qp-bar">
+              <div className="qp-bar-fill" style={{ width: `${percent}%` }} />
+            </div>
+          </div>
+
+          <div className="qp-timer">
+            <span>⏱</span>
+            <strong>{nowOver ? "00:00" : formatted}</strong>
+          </div>
+        </div>
+
+        {/* Question */}
+        <h2 className="qp-title">{q.text}</h2>
+
+        {/* Options */}
+        <div className="qp-options">
+          {q.options.map((o) => {
+            const active = chosen.has(o.key);
+            return (
+              <button
+                key={o.key}
+                type="button"
+                className={`qp-option ${active ? "active" : ""}`}
+                onClick={() => selectKey(o.key)}
+                disabled={nowOver}
+              >
+                <span className="qp-bullet">{o.key}</span>
+                <span className="qp-text">{o.text}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Nav */}
+        <div className="qp-nav">
+          <button className="qp-btn ghost" onClick={goPrev} disabled={idx === 0}>← Previous</button>
+          {!last ? (
+            <button className="qp-btn primary" onClick={goNext} disabled={!canNext || nowOver}>Next →</button>
+          ) : (
+            <button className="qp-btn primary" onClick={submit} disabled={!canNext || submitting || nowOver}>
+              {submitting ? "Submitting…" : "Submit"}
+            </button>
+          )}
+        </div>
       </div>
-
-      <ol>
-        {questions.map(q => {
-          const multi = q.type === "multi";
-          const chosen = new Set(answers[q._id] || []);
-          return (
-            <li key={q._id} style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 600 }}>{q.text}</div>
-              <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-                {q.options.map(o => {
-                  const checked = chosen.has(o.key);
-                  return (
-                    <li key={o.key} style={{ marginTop: 6 }}>
-                      <label style={{ display: "flex", gap: 8, alignItems:"center" }}>
-                        <input
-                          type={multi ? "checkbox" : "radio"}
-                          name={q._id}
-                          checked={checked}
-                          onChange={() => toggle(q._id, o.key, multi)}
-                          disabled={nowOver}
-                        />
-                        <span><strong>{o.key}.</strong> {o.text}</span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            </li>
-          );
-        })}
-      </ol>
-
-      <button onClick={submit} disabled={submitting || nowOver} style={{ padding: "10px 14px" }}>
-        {submitting ? "Submitting…" : "Submit"}
-      </button>
-      {nowOver && <div style={{ marginTop: 10, color: "#b91c1c" }}>Time is up — try submitting to see result.</div>}
     </div>
   );
 }

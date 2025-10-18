@@ -13,6 +13,7 @@ app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", creden
 app.use(express.json());
 app.use(cookieParser());
 
+
 const MONGO_URI = process.env.MONGO_URI;
 mongoose
   .connect(MONGO_URI)
@@ -29,6 +30,7 @@ mongoose
     app.use("/auth", require("./routes/auth"));
     app.use("/admin", require("./routes/admin"));
     app.use("/public", require("./routes/public"));
+    app.use("/attempts", require("./routes/attempts"));
 
     app.get("/health", async (req, res) => {
       const dbState = mongoose.connection.readyState; 

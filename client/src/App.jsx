@@ -1,16 +1,25 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import "./styles/login.css";
 import "./styles/admin.css";
+import "./styles/student.css";  
 import LoginEmail from "./pages/LoginEmail";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
-import Dashboard from "./pages/Dashboard";
 import AuthGuard from "./components/AuthGuard";
+
+import StudentLayout from "./pages/student/StudentLayout";
+import StudentDashboard from "./pages/student/StudentDashboard";
+import AvailableQuizzes from "./pages/student/AvailableQuizzes";
+import MyResults from "./pages/student/MyResults";
+
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminModules from "./pages/admin/Modules";
 import AdminQuizzes from "./pages/admin/Quizzes";
 import AdminQuestions from "./pages/admin/Questions";
+
+import QuizPlayer from "./pages/QuizPlayer";
+import QuizResult from "./pages/QuizResult";
 
 export default function App() {
   return (
@@ -22,15 +31,20 @@ export default function App() {
 
       {/* Student area */}
       <Route
-        path="/dashboard"
+        path="/"
         element={
           <AuthGuard allow="any">
-            <Dashboard />
+            <StudentLayout />
           </AuthGuard>
         }
-      />
+      >
+        <Route path="dashboard" element={<StudentDashboard />} />
+        <Route path="available" element={<AvailableQuizzes />} />
+        <Route path="results" element={<MyResults />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
+      </Route>
 
-      {/* Admin area with layout + nested pages */}
+      {/* Admin area */}
       <Route
         path="/admin"
         element={
@@ -46,7 +60,25 @@ export default function App() {
         <Route path="questions" element={<AdminQuestions />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Player & Results (protected) */}
+      <Route
+        path="/play/:quizId"
+        element={
+          <AuthGuard allow="any">
+            <QuizPlayer />
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/result/:attemptId"
+        element={
+          <AuthGuard allow="any">
+            <QuizResult />
+          </AuthGuard>
+        }
+      />
+
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/http";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
   const [modules, setModules] = useState([]);
   const [moduleId, setModuleId] = useState("");
   const [quizzes, setQuizzes] = useState([]);
+  const nav = useNavigate();
 
   useEffect(() => {
     api.get("/public/modules").then(({ data }) => setModules(data.modules || []));
@@ -29,8 +31,9 @@ export default function Dashboard() {
           <h3 style={{ marginTop: 16 }}>Quizzes</h3>
           <ul>
             {quizzes.map(q => (
-              <li key={q._id}>
+              <li key={q._id} style={{ marginBottom: 8 }}>
                 <strong>{q.title}</strong> — {q.durationSeconds}s
+                <button style={{ marginLeft: 10 }} onClick={() => nav(`/play/${q._id}`)}>Start</button>
               </li>
             ))}
           </ul>

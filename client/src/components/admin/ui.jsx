@@ -1,4 +1,3 @@
-// Simple, dependency-free UI helpers
 export function Panel({ title, right, children }) {
   return (
     <div className="ad-panel">

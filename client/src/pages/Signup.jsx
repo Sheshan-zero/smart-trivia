@@ -76,7 +76,6 @@ export default function Signup() {
               />
             </div>
 
-            {/* optional – let you create admins manually */}
             <div className="input-wrap">
               <span className="input-icon">🛡️</span>
               <select

@@ -12,7 +12,6 @@ export default function AdminLayout() {
 
   return (
     <div className="ad-shell">
-      {/* Sidebar */}
       <aside className="ad-sidebar">
         <div className="ad-brand">
           <div className="ad-logo">🧠</div>
@@ -32,12 +31,14 @@ export default function AdminLayout() {
           <NavLink to="/admin/questions" className={({isActive}) => "ad-link" + (isActive ? " active" : "")}>
             <span>❓</span> Manage Questions
           </NavLink>
+          <NavLink to="/admin/users" className={({isActive}) => "ad-link" + (isActive ? " active" : "")}>
+            <span>👥</span> Manage Users
+          </NavLink>
         </nav>
 
         <div className="ad-footer">© {new Date().getFullYear()} ALL RIGHTS RESERVED</div>
       </aside>
 
-      {/* Main */}
       <main className="ad-main">
         <header className="ad-topbar">
           <div />

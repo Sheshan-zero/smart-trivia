@@ -5,6 +5,9 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
 const path = require("path");
+const adminUsers = require("./routes/adminUsers");
+const { authRequired } = require("./middleware/auth");
+const User = require("./models/User");
 
 const app = express();
 
@@ -12,6 +15,7 @@ app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use("/admin/users", adminUsers);
 
 
 const MONGO_URI = process.env.MONGO_URI;
@@ -55,3 +59,9 @@ mongoose
     console.error("MongoDB connection error:", err.message);
     process.exit(1);
   });
+
+  
+app.post("/dev/make-admin", authRequired, async (req, res) => {
+  await User.findByIdAndUpdate(req.user.uid, { isAdmin: true }, { new: true });
+  res.json({ ok: true });
+});

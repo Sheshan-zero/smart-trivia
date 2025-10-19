@@ -22,20 +22,16 @@ export default function QuizResult() {
     (async () => {
       setLoading(true);
       try {
-        // always fetch attempt meta (for quizId/date)
         const { data: ad } = await api.get(`/attempts/${attemptId}`);
         if (!mounted) return;
         setAttempt(ad.attempt);
 
-        // try to fetch enriched result (has options); if it fails, keep current
         try {
           const { data } = await api.get(`/attempts/${attemptId}/result`);
           if (!mounted) return;
           setResult(normalizeResult(data));
         } catch {
-          // ignore (e.g., if not submitted yet — unlikely here)
           if (!result) {
-            // if nothing to show at all, bail out
             alert("Result unavailable");
             nav("/dashboard");
           }
@@ -49,7 +45,7 @@ export default function QuizResult() {
     })();
 
     return () => { mounted = false; };
-  }, [attemptId, nav]); // deliberate: don't depend on result/navState
+  }, [attemptId, nav]);
 
   if (loading || !result) return <div style={{ padding: 24 }}>Loading result…</div>;
 
@@ -144,7 +140,6 @@ export default function QuizResult() {
                     })}
                   </ul>
                 ) : (
-                  // Fallback when we don't have option texts (coming from /submit payload)
                   <div style={{ color:"#6b7280", fontSize:14 }}>
                     Your answer: <strong>{[...chosen].join(", ") || "—"}</strong> &nbsp; | &nbsp;
                     Correct: <strong>{[...correct].join(", ") || "—"}</strong>

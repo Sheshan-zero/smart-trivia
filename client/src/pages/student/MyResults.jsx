@@ -7,7 +7,7 @@ export default function MyResults() {
   const [loading, setLoading] = useState(true);
   const [attempts, setAttempts] = useState([]);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all"); // all | submitted | expired
+  const [status, setStatus] = useState("all");
 
   useEffect(() => {
     let mounted = true;

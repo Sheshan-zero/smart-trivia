@@ -12,4 +12,8 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
+userSchema.virtual("isAdmin").get(function () {
+  return this.role === "admin";
+});
+
 module.exports = model("User", userSchema);

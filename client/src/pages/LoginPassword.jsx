@@ -9,7 +9,7 @@ export default function LoginPassword() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const navigate = useNavigate();   // ✅ Add this line
+  const navigate = useNavigate();  
 
   const submit = async (e) => {
     e.preventDefault();

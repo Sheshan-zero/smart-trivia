@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import "./styles/login.css";
 import "./styles/admin.css";
-import "./styles/student.css";  
+import "./styles/student.css";
+
+import Landing from "./pages/Landing";
 import LoginEmail from "./pages/LoginEmail";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -17,6 +19,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminModules from "./pages/admin/Modules";
 import AdminQuizzes from "./pages/admin/Quizzes";
 import AdminQuestions from "./pages/admin/Questions";
+import AdminUsers from "./pages/admin/Users";
 
 import QuizPlayer from "./pages/QuizPlayer";
 import QuizResult from "./pages/QuizResult";
@@ -24,12 +27,11 @@ import QuizResult from "./pages/QuizResult";
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<LoginEmail />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot" element={<ForgotPassword />} />
 
-      {/* Student area */}
       <Route
         path="/"
         element={
@@ -41,10 +43,9 @@ export default function App() {
         <Route path="dashboard" element={<StudentDashboard />} />
         <Route path="available" element={<AvailableQuizzes />} />
         <Route path="results" element={<MyResults />} />
-        <Route index element={<Navigate to="dashboard" replace />} />
       </Route>
 
-      {/* Admin area */}
+
       <Route
         path="/admin"
         element={
@@ -58,9 +59,9 @@ export default function App() {
         <Route path="modules" element={<AdminModules />} />
         <Route path="quizzes" element={<AdminQuizzes />} />
         <Route path="questions" element={<AdminQuestions />} />
+        <Route path="users" element={<AdminUsers />} />
       </Route>
 
-      {/* Player & Results (protected) */}
       <Route
         path="/play/:quizId"
         element={
@@ -77,8 +78,7 @@ export default function App() {
           </AuthGuard>
         }
       />
-
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

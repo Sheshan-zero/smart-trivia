@@ -1,5 +1,4 @@
 import axios from "axios";
-import { useAuth } from "../store/auth";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
@@ -7,8 +6,8 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = useAuth.getState().accessToken;
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const at = localStorage.getItem("accessToken");
+  if (at) config.headers.Authorization = `Bearer ${at}`;
   return config;
 });
 
@@ -17,19 +16,26 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original.__retried) {
+    const status = error?.response?.status;
+
+    if (status === 401 && !original._retry) {
+      original._retry = true;
       try {
-        if (!refreshing) {
-          refreshing = api.post("/auth/refresh").finally(() => (refreshing = null));
+        refreshing = refreshing || axios.post(
+          (import.meta.env.VITE_API_URL || "http://localhost:5000") + "/auth/refresh",
+          {},
+          { withCredentials: true }
+        );
+        const { data } = await refreshing;
+        refreshing = null;
+
+        if (data?.accessToken) {
+          localStorage.setItem("accessToken", data.accessToken);
+          original.headers.Authorization = `Bearer ${data.accessToken}`;
+          return api(original); 
         }
-        const { data } = await refreshing; 
-        useAuth.getState().setAccessToken(data.accessToken);
-        original.headers = { ...(original.headers || {}), Authorization: `Bearer ${data.accessToken}` };
-        original.__retried = true;
-        return api.request(original);
-      } catch {
-        useAuth.getState().clearSession();
-        window.location.href = "/login";
+      } catch (_) {
+        refreshing = null;
       }
     }
     return Promise.reject(error);

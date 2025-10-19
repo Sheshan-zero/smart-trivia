@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/http";
 import { useNavigate } from "react-router-dom";
 
-// a few pleasant placeholders
 const covers = [
   "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1500&auto=format&fit=crop",
   "https://images.unsplash.com/photo-1499771931079-ce2182f1a5f0?q=80&w=1500&auto=format&fit=crop",
@@ -26,7 +25,6 @@ export default function StudentDashboard() {
         const { data: md } = await api.get("/public/modules");
         if (!mounted) return;
         setModules(md.modules || []);
-        // fetch quizzes for all modules in parallel
         const promises = (md.modules || []).map(m =>
           api.get(`/public/modules/${m._id}/quizzes`).then(({ data }) =>
             (data.quizzes || []).map(q => ({ ...q, module: m }))
@@ -59,7 +57,6 @@ export default function StudentDashboard() {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
         <h2 className="st-h2">Recent Quizzes</h2>
-        {/* connect the top search input to this if you want shared state */}
         <input
           value={query}
           onChange={(e)=>setQuery(e.target.value)}

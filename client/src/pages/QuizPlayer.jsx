@@ -11,17 +11,13 @@ export default function QuizPlayer() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // timer (server-authoritative)
   const timerRef = useRef(null);
-  const [remaining, setRemaining] = useState(0); // seconds
+  const [remaining, setRemaining] = useState(0); 
 
-  // answers: { [questionId]: [keys] }
   const [answers, setAnswers] = useState({});
 
-  // single-question view
   const [idx, setIdx] = useState(0);
 
-  // fetch questions + start/resume attempt
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -34,13 +30,11 @@ export default function QuizPlayer() {
         if (!mounted) return;
         setAttemptId(sd.attemptId);
 
-        // resume answers
         const { data: ad } = await api.get(`/attempts/${sd.attemptId}`);
         const map = {};
         for (const r of ad.attempt.responses || []) map[r.questionId] = r.chosenKeys || [];
         setAnswers(map);
 
-        // timer
         const endMs = new Date(sd.endsAt).getTime();
         const tick = () => {
           const rem = Math.max(0, Math.floor((endMs - Date.now()) / 1000));
@@ -59,7 +53,6 @@ export default function QuizPlayer() {
     return () => { mounted = false; clearInterval(timerRef.current); };
   }, [quizId, nav]);
 
-  // autosave every 8s
   useEffect(() => {
     if (!attemptId) return;
     const h = setInterval(() => {
@@ -75,7 +68,6 @@ export default function QuizPlayer() {
     return `${m}:${s}`;
   }, [remaining]);
 
-  // helpers
   const nowOver = remaining <= 0;
   const total = questions.length;
   const q = questions[idx];
@@ -91,7 +83,6 @@ export default function QuizPlayer() {
         s.has(key) ? s.delete(key) : s.add(key);
         return { ...prev, [q._id]: [...s] };
       }
-      // single choice
       return { ...prev, [q._id]: [key] };
     });
   };
@@ -122,7 +113,6 @@ export default function QuizPlayer() {
   return (
     <div className="qp-wrap">
       <div className="qp-card">
-        {/* Header: progress + timer */}
         <div className="qp-head">
           <div className="qp-progress">
             <div className="qp-progress-top">
@@ -139,10 +129,8 @@ export default function QuizPlayer() {
           </div>
         </div>
 
-        {/* Question */}
         <h2 className="qp-title">{q.text}</h2>
 
-        {/* Options */}
         <div className="qp-options">
           {q.options.map((o) => {
             const active = chosen.has(o.key);
@@ -161,7 +149,6 @@ export default function QuizPlayer() {
           })}
         </div>
 
-        {/* Nav */}
         <div className="qp-nav">
           <button className="qp-btn ghost" onClick={goPrev} disabled={idx === 0}>← Previous</button>
           {!last ? (

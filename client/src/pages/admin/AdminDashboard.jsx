@@ -22,7 +22,6 @@ export default function AdminDashboard() {
         console.log("stats from /admin/stats:", data);
       } catch (err) {
         console.warn("Failed /admin/stats, using fallback:", err?.response?.status, err?.message);
-        // Fallback values so cards aren’t empty while you wire a real stats endpoint
         setStats({ users: 5, quizzes: 10, reports: 0, approvals: 3 });
       }
     };

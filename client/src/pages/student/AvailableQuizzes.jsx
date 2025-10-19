@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/http";
 import { useNavigate } from "react-router-dom";
 
-// pleasant placeholder covers
 const covers = [
   "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1500&auto=format&fit=crop",
   "https://images.unsplash.com/photo-1499771931079-ce2182f1a5f0?q=80&w=1500&auto=format&fit=crop",
@@ -14,19 +13,15 @@ const covers = [
 
 export default function AvailableQuizzes() {
   const nav = useNavigate();
-
-  // modules view
   const [modules, setModules] = useState([]);
   const [loadingModules, setLoadingModules] = useState(true);
   const [moduleQuery, setModuleQuery] = useState("");
 
-  // selected module → quizzes view
-  const [selected, setSelected] = useState(null); // { _id, title, code, description }
+  const [selected, setSelected] = useState(null); 
   const [quizzes, setQuizzes] = useState([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
   const [quizQuery, setQuizQuery] = useState("");
 
-  // Load all modules initially
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -40,7 +35,6 @@ export default function AvailableQuizzes() {
     return () => { mounted = false; };
   }, []);
 
-  // When a module is selected, pull quizzes
   const openModule = async (mod) => {
     setSelected(mod);
     setQuizzes([]);
@@ -59,7 +53,6 @@ export default function AvailableQuizzes() {
     setQuizzes([]);
   };
 
-  // Filters
   const filteredModules = useMemo(() => {
     const q = moduleQuery.trim().toLowerCase();
     if (!q) return modules;
@@ -79,9 +72,7 @@ export default function AvailableQuizzes() {
     );
   }, [quizzes, quizQuery]);
 
-  // ---------- Renders ----------
   if (!selected) {
-    // Modules grid
     return (
       <div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
@@ -124,7 +115,6 @@ export default function AvailableQuizzes() {
     );
   }
 
-  // Quizzes in selected module
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>

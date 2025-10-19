@@ -1,4 +1,3 @@
-// server/routes/adminUsers.js
 const express = require("express");
 const mongoose = require("mongoose");
 const { authRequired, isAdmin } = require("../middleware/auth"); // use robust admin check
@@ -8,14 +7,8 @@ const { sendMail } = require("../utils/mailer");
 
 const router = express.Router();
 
-// Protect all routes: must be logged in AND admin
 router.use(authRequired, isAdmin);
 
-/**
- * GET /admin/users
- * ?query=&role=all|admin|student&status=all|active|suspended&page=1&limit=20
- * Tolerant filters: treat missing isAdmin/isSuspended as false.
- */
 router.get("/", async (req, res) => {
   const {
     query = "",
@@ -27,13 +20,11 @@ router.get("/", async (req, res) => {
 
   const q = {};
 
-  // text search
   if (query) {
     const rx = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     q.$or = [{ email: rx }, { name: rx }];
   }
 
-  // role filter
   if (role === "admin") {
     q.isAdmin = true;
   } else if (role === "student") {
@@ -42,7 +33,6 @@ router.get("/", async (req, res) => {
     ]);
   }
 
-  // status filter
   if (status === "active") {
     q.$and = (q.$and || []).concat([
       { $or: [{ isSuspended: { $exists: false } }, { isSuspended: false }] },
@@ -68,9 +58,6 @@ router.get("/", async (req, res) => {
   res.json({ ok: true, items, total, page: p, limit: per });
 });
 
-/**
- * PATCH /admin/users/:id   { name?, isAdmin?, isSuspended? }
- */
 router.patch("/:id", async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id))
     return res.status(400).json({ error: "Invalid user id" });
@@ -88,9 +75,7 @@ router.patch("/:id", async (req, res) => {
   res.json({ ok: true, user });
 });
 
-/**
- * DELETE /admin/users/:id
- */
+
 router.delete("/:id", async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id))
     return res.status(400).json({ error: "Invalid user id" });
@@ -100,10 +85,7 @@ router.delete("/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-/**
- * POST /admin/users/invite { email, name?, isAdmin? }
- * Creates user if missing and emails an OTP for signup.
- */
+
 router.post("/invite", async (req, res) => {
   const { email, name, isAdmin: makeAdmin = false } = req.body || {};
   if (!email) return res.status(400).json({ error: "email required" });
@@ -133,10 +115,6 @@ router.post("/invite", async (req, res) => {
   res.status(201).json({ ok: true, userId: user._id });
 });
 
-/**
- * POST /admin/users/:id/reset-password
- * Sends a reset OTP to the user.
- */
 router.post("/:id/reset-password", async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id))
     return res.status(400).json({ error: "Invalid user id" });

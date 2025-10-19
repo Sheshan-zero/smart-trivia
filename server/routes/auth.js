@@ -1,4 +1,3 @@
-// server/routes/auth.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
@@ -14,9 +13,8 @@ const Otp = require("../models/Otp");
 
 const router = express.Router();
 
-/* ----------------------------- Rate Limiters ----------------------------- */
 const otpRequestLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 mins
+  windowMs: 10 * 60 * 1000, 
   max: 5,
   message: { error: "Too many OTP requests. Please wait and try again." },
 });
@@ -27,7 +25,6 @@ const otpVerifyLimiter = rateLimit({
   message: { error: "Too many attempts. Please wait and try again." },
 });
 
-/* --------------------------------- Utils -------------------------------- */
 const normalizeEmail = (e) => String(e || "").trim().toLowerCase();
 const random6 = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -36,8 +33,8 @@ function buildJwtPayload(user) {
   return {
     uid: user._id.toString(),
     email: user.email,
-    role: user.role,               // "student" | "admin"
-    isAdmin: user.role === "admin" // boolean for guards that check isAdmin
+    role: user.role,               
+    isAdmin: user.role === "admin" 
   };
 }
 
@@ -46,12 +43,11 @@ function setRefreshCookie(res, refreshToken) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000, 
     path: "/",
   });
 }
 
-/* ------------------------------- OTP: Send ------------------------------- */
 router.post("/request-otp", otpRequestLimiter, async (req, res) => {
   try {
     const { email, purpose } = req.body || {};
@@ -81,7 +77,6 @@ router.post("/request-otp", otpRequestLimiter, async (req, res) => {
   }
 });
 
-/* ------------------------------- OTP: Verify ------------------------------ */
 router.post("/verify-otp", otpVerifyLimiter, async (req, res) => {
   try {
     const { email, code, purpose } = req.body || {};
@@ -108,11 +103,9 @@ router.post("/verify-otp", otpVerifyLimiter, async (req, res) => {
     }
 
     if (purpose === "reset") {
-      // Client will proceed to /auth/reset-password with code
       return res.json({ ok: true, resetAllowed: true });
     }
 
-    // purpose === "login"
     let user = await User.findOne({ email: normalized });
     if (!user) {
       user = await User.create({ email: normalized, role: "student" });
@@ -139,14 +132,12 @@ router.post("/verify-otp", otpVerifyLimiter, async (req, res) => {
   }
 });
 
-/* -------------------------------- Refresh -------------------------------- */
 router.post("/refresh", async (req, res) => {
   try {
     const token = req.cookies?.rt;
     if (!token) return res.status(401).json({ error: "No refresh token" });
 
-    const payload = verifyRefresh(token); // { uid, role, email, isAdmin } (maybe old)
-    // Re-fetch user to honor role changes since the refresh was issued
+    const payload = verifyRefresh(token); 
     const user = await User.findById(payload.uid).select("email role");
     if (!user) return res.status(401).json({ error: "User not found" });
 
@@ -158,13 +149,11 @@ router.post("/refresh", async (req, res) => {
   }
 });
 
-/* --------------------------------- Logout -------------------------------- */
 router.post("/logout", (req, res) => {
   res.clearCookie("rt", { path: "/" });
   res.json({ ok: true });
 });
 
-/* --------------------------------- Signup -------------------------------- */
 router.post("/signup", async (req, res) => {
   try {
     const { email, password, name, role } = req.body || {};
@@ -204,7 +193,6 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-/* ---------------------------- Login with Password --------------------------- */
 router.post("/login-password", async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -240,7 +228,6 @@ router.post("/login-password", async (req, res) => {
   }
 });
 
-/* ------------------------------ Reset Password ----------------------------- */
 router.post("/reset-password", async (req, res) => {
   try {
     const { email, code, newPassword } = req.body || {};
@@ -274,7 +261,6 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
-/* ----------------------------------- Me ----------------------------------- */
 router.get("/me", authRequired, async (req, res) => {
   try {
     const user = await User.findById(req.user.uid).select(

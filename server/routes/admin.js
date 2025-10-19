@@ -1,4 +1,3 @@
-// server/routes/admin.js
 const express = require("express");
 const mongoose = require("mongoose");
 const { authRequired, isAdmin } = require("../middleware/auth");
@@ -10,7 +9,6 @@ const User = require("../models/User");
 const router = express.Router();
 router.use(authRequired, isAdmin);
 
-// ---------- Dashboard stats ----------
 router.get("/stats", async (req, res) => {
   try {
     const [users, quizzes] = await Promise.all([
@@ -23,7 +21,6 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-// ===================== MODULES =====================
 router.post("/modules", async (req, res) => {
   try {
     const { title, code, description, isActive = true } = req.body || {};
@@ -64,11 +61,6 @@ router.patch("/modules/:id", async (req, res) => {
   }
 });
 
-/**
- * DELETE /admin/modules/:id
- * By default: blocks if the module still has quizzes.
- * Use ?force=true to also delete its quizzes and their questions.
- */
 router.delete("/modules/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -101,7 +93,6 @@ router.delete("/modules/:id", async (req, res) => {
   }
 });
 
-// ===================== QUIZZES =====================
 router.post("/quizzes", async (req, res) => {
   try {
     const {
@@ -153,11 +144,6 @@ router.patch("/quiz/:id", async (req, res) => {
   }
 });
 
-/**
- * DELETE /admin/quiz/:id
- * Deletes the quiz and its questions.
- * (If you want to block deletion when attempts exist, add a guard here.)
- */
 router.delete("/quiz/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -167,15 +153,6 @@ router.delete("/quiz/:id", async (req, res) => {
     const quiz = await Quiz.findById(id);
     if (!quiz) return res.status(404).json({ error: "Quiz not found" });
 
-    // Optional guard: block if there are attempts (uncomment if you add Attempt model import)
-    // const Attempt = require("../models/Attempt");
-    // const hasAttempts = await Attempt.exists({ quizId: id });
-    // if (hasAttempts && String(req.query.force) !== "true") {
-    //   return res.status(400).json({ error: "Quiz has attempts. Pass ?force=true to delete anyway." });
-    // }
-    // if (hasAttempts && String(req.query.force) === "true") {
-    //   await Attempt.deleteMany({ quizId: id });
-    // }
 
     await Question.deleteMany({ quizId: id });
     await Quiz.findByIdAndDelete(id);
@@ -186,7 +163,6 @@ router.delete("/quiz/:id", async (req, res) => {
   }
 });
 
-// ===================== QUESTIONS =====================
 router.post("/questions", async (req, res) => {
   try {
     const {
@@ -241,10 +217,6 @@ router.patch("/question/:id", async (req, res) => {
   }
 });
 
-/**
- * DELETE /admin/question/:id
- * Deletes a single question.
- */
 router.delete("/question/:id", async (req, res) => {
   try {
     const { id } = req.params;

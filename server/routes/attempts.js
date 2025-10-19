@@ -8,7 +8,6 @@ const Question = require("../models/Question");
 const router = express.Router();
 router.use(authRequired);
 
-// helper: compare sets equal
 const eq = (a = [], b = []) => {
   if (a.length !== b.length) return false;
   const as = new Set(a), bs = new Set(b);
@@ -16,7 +15,6 @@ const eq = (a = [], b = []) => {
   return true;
 };
 
-// guard: validate ObjectId params
 function ensureObjectId(req, res, next) {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(400).json({ error: "Invalid attempt id" });
@@ -24,9 +22,6 @@ function ensureObjectId(req, res, next) {
   next();
 }
 
-/* ------------------------------------------------------------------
- *  START / RESUME ATTEMPT
- * ------------------------------------------------------------------ */
 router.post("/start", async (req, res) => {
   const { quizId } = req.body || {};
   if (!quizId) return res.status(400).json({ error: "quizId required" });
@@ -74,9 +69,6 @@ router.post("/start", async (req, res) => {
   });
 });
 
-/* ------------------------------------------------------------------
- *  LIST MY ATTEMPTS (KEEP THIS ABOVE ANY /:id ROUTES)
- * ------------------------------------------------------------------ */
 router.get("/mine", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
 
@@ -85,7 +77,6 @@ router.get("/mine", async (req, res) => {
     .limit(limit)
     .populate({ path: "quizId", select: "title moduleId durationSeconds" });
 
-  // include module titles/codes
   const Module = require("../models/Module");
   const moduleIds = [
     ...new Set(
@@ -116,11 +107,6 @@ router.get("/mine", async (req, res) => {
   res.json({ ok: true, attempts: data });
 });
 
-/* ------------------------------------------------------------------
- *  RESUME / SAVE / SUBMIT / RESULT (/:id routes)
- * ------------------------------------------------------------------ */
-
-// GET /attempts/:id -> resume info
 router.get("/:id", ensureObjectId, async (req, res) => {
   const att = await Attempt.findById(req.params.id);
   if (!att || String(att.userId) !== String(req.user.uid)) {
@@ -141,7 +127,6 @@ router.get("/:id", ensureObjectId, async (req, res) => {
   });
 });
 
-// POST /attempts/:id/save
 router.post("/:id/save", ensureObjectId, async (req, res) => {
   const att = await Attempt.findById(req.params.id);
   if (!att || String(att.userId) !== String(req.user.uid)) {
@@ -162,7 +147,6 @@ router.post("/:id/save", ensureObjectId, async (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /attempts/:id/submit
 router.post("/:id/submit", ensureObjectId, async (req, res) => {
   const GRACE_MS = 10 * 1000; // 10s grace
   const att = await Attempt.findById(req.params.id);
@@ -173,7 +157,6 @@ router.post("/:id/submit", ensureObjectId, async (req, res) => {
     return res.status(400).json({ error: "Already submitted" });
   }
 
-  // merge final responses
   const map = new Map(att.responses.map((r) => [String(r.questionId), r]));
   for (const r of req.body?.responses || []) {
     map.set(String(r.questionId), {
@@ -193,7 +176,6 @@ router.post("/:id/submit", ensureObjectId, async (req, res) => {
     return res.status(400).json({ error: "Time up. Attempt expired." });
   }
 
-  // score
   const questions = await Question.find({ quizId: att.quizId }).select("_id correctKeys marks");
   const qMap = new Map(questions.map((q) => [String(q._id), q]));
   let score = 0;
@@ -221,7 +203,6 @@ router.post("/:id/submit", ensureObjectId, async (req, res) => {
   res.json({ ok: true, score, durationSeconds: att.durationSeconds, review });
 });
 
-// GET /attempts/:id/result
 router.get("/:id/result", ensureObjectId, async (req, res) => {
   const att = await Attempt.findById(req.params.id);
   if (!att || String(att.userId) !== String(req.user.uid)) {
